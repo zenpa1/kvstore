@@ -4,10 +4,67 @@ use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener, TcpStream};
 mod db;
 mod protocol;
 use db::Database; // removes db:: when using Database
-// use protocol::Command;
+use protocol::Command;
 
-fn handle_connection(stream: TcpStream) {
-    // ...
+fn handle_connection(mut stream: TcpStream, db: &mut Database) {
+    // Create a buffer as raw TCP sends bytes, not strings
+    let mut buffer: [u8; 512] = [0; 512];
+
+    // Read the bytes by pulling data from the network into the buffer
+    match stream.read(&mut buffer) {
+        Ok(bytes_read) => {
+            // Return a usize representing how many bytes it read
+            // If bytes_read is 0, the client disconnected.
+            if bytes_read == 0 {
+                return;
+            }
+        }
+        Err(e) => {
+            println!("Error: Could not read stream bytes. {}", e);
+            return;
+        }
+    }
+
+    // Convert raw bytes into a Rust UTF-8 String
+    /*
+    If all bytes are valid UTF-8 → returns a borrowed &str (no allocation).
+    Else if invalid bytes are found → allocates a new String with replacements.
+
+    A Cow is an Enum that can hold either BORROWED data or OWNED data.
+    But in this case, we want an &str for our parser, so to_string() is inserted.
+    */
+    let user_input: &str = &String::from_utf8_lossy(&buffer[..]).to_string();
+
+    // Parse and execute
+    let command: Command = protocol::parse(user_input);
+    match command {
+        Command::Get { key } => match db.get(&key) {
+            Some(str) => {
+                // Format the string with a newline to make the terminal look cleaner
+                let response = format!("{}\n", str);
+
+                // Convert the formatted String into raw bytes and send'
+                let _ = stream.write_all(response.as_bytes());
+            }
+            None => {
+                let _ = stream.write_all(b"Error: KEY not found.\n");
+            }
+        },
+        Command::Set { key, value } => {
+            db.set(key, value);
+            stream.write_all(b"SET successful.\n");
+        }
+        Command::Delete { key } => {
+            db.delete(&key);
+            stream.write_all(b"DELETE successful.\n");
+        }
+        Command::Ping => {
+            stream.write_all(b"PONG\n");
+        }
+        Command::Unknown => {
+            stream.write_all(b"Error: UNKNOWN command.\n");
+        }
+    }
 }
 
 fn main() -> std::io::Result<()> {
@@ -24,10 +81,10 @@ fn main() -> std::io::Result<()> {
     );
 
     // Accept connections and process serially
-    for mut stream in listener.incoming() {
+    for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
-                handle_connection(stream);
+                handle_connection(stream, &mut db);
             }
 
             Err(e) => {
@@ -36,19 +93,6 @@ fn main() -> std::io::Result<()> {
         }
     }
 
-    // Create a buffer as raw TCP sends bytes, not strings
-    let mut buffer: [u8; 512] = [0; 512];
-
-    // Read the bytes by pulling data from the network into the buffer
-    stream.read(&mut buffer); // Mutable reference: we want to read it, and possibly write to it
-    // but how do I get the variable from the loop?
-
-    // Convert raw bytes into a Rust UTF-8 String
-    let user_input: String = String::from_utf8_lossy(&buffer[..]).to_string();
-    // wait if it's a String::from method, why do I still need to convert it to .to_string()?
-
-    // Parse and execute
-    protocol::parse()
-
-    Ok(())
+    Ok(()) // for TcpListener bind, meaning nothing/unit type/void in C++
+    // In other words, "The program finished successfully, and I have nothing to give now."
 }
