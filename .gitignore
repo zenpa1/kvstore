@@ -1,0 +1,13 @@
+# Cargo build artifacts
+/target/
+# Backup files
+**/*.rs.bk
+# Debugging files (Windows)
+*.pdb
+# Mutation testing outputs
+**/mutants.out*/
+# IDE files (optional)
+#.idea/
+#.vscode/
+# Environment files
+.env*
