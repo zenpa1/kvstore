@@ -13,16 +13,6 @@ impl Database {
         }
     }
 
-    pub fn set(&mut self, key: String, value: String) {
-        // Take a key and a value, and insert them into the HashMap
-        self.data.insert(key, value);
-
-        /*
-        self is mutable here because we want to modify
-        the already existing HashMap.
-        */
-    }
-
     pub fn get(&self, key: &str) -> Option<&String> {
         // Takes a string slice for the key and returns the value
         // if it exists
@@ -32,6 +22,16 @@ impl Database {
         Return an Option because the key might not exist, so we
         match it. Also, it is a reference to the String because we
         want to look at the data, not remove it from the database.
+        */
+    }
+
+    pub fn set(&mut self, key: String, value: String) {
+        // Take a key and a value, and insert them into the HashMap
+        self.data.insert(key, value);
+
+        /*
+        self is mutable here because we want to modify
+        the already existing HashMap.
         */
     }
 
